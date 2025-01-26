@@ -26,7 +26,7 @@ export default function Home() {
   const startDebate = async () => {
     if (!topic.trim()) return;
 
-    // ユーザーのメッセージ（topic）を送信（表示用）
+    // まずユーザー入力を "user" ロールで表示用に追加
     await append({
       role: 'user',
       content: topic,
@@ -44,9 +44,10 @@ export default function Home() {
       {
         body: {
           topic,
-          side: 'pro',
+          side: 'pro', // 賛成派
         },
         onFinish: (message) => {
+          console.log('Pro side final output:', message.content); // デバッグ出力
           tempProContent = message.content;
           setProContent(message.content);
         },
@@ -67,6 +68,7 @@ export default function Home() {
           proContent: tempProContent,
         },
         onFinish: (message) => {
+          console.log('Con side final output:', message.content); // デバッグ出力
           setConContent(message.content);
         },
       }
@@ -92,7 +94,8 @@ export default function Home() {
             <CardTitle>賛成派</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="p-2 bg-secondary text-secondary-foreground rounded mb-2 whitespace-pre-wrap">
+            {/* ここで賛成派のテキストを直に表示 → 見やすいようにスレート色で */}
+            <div className="p-2 bg-gray-100 text-black rounded mb-2 whitespace-pre-wrap">
               {proContent}
             </div>
           </CardContent>
@@ -104,7 +107,7 @@ export default function Home() {
             <CardTitle>反対派</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="p-2 bg-secondary text-secondary-foreground rounded mb-2 whitespace-pre-wrap">
+            <div className="p-2 bg-gray-100 text-black rounded mb-2 whitespace-pre-wrap">
               {conContent}
             </div>
           </CardContent>
