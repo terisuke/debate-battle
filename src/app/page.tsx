@@ -16,16 +16,13 @@ interface Message extends AIMessage {
 
 export default function Home() {
   const [topic, setTopic] = useState('');
+  const [proContent, setProContent] = useState('');
+  const [conContent, setConContent] = useState('');
 
-  // 「賛成派の最終主張」を別途保存するための状態
-  const [proArgument, setProArgument] = useState('');
-
-  // ★ ジェネリクスで Message 型を指定
   const { messages, append } = useChat<Message>({
     api: '/api/debate',
   });
 
-  // 討論開始
   const startDebate = async () => {
     if (!topic.trim()) return;
 
@@ -37,7 +34,7 @@ export default function Home() {
     });
 
     // ===== 賛成派の呼び出し =====
-    let proContent = '';
+    let tempProContent = '';
     await append(
       {
         role: 'assistant',
@@ -47,19 +44,16 @@ export default function Home() {
       {
         body: {
           topic,
-          side: 'pro', // 賛成派
+          side: 'pro',
         },
-        // 賛成派呼び出しが完了したときに「完成した文章」を記録
         onFinish: (message) => {
-          // message.content が最終的な賛成派のテキスト
-          proContent = message.content;
-          setProArgument(message.content); // 状態としても保存しておく
+          tempProContent = message.content;
+          setProContent(message.content);
         },
       }
     );
 
     // ===== 反対派の呼び出し =====
-    // 賛成派の最終的な文章（proContent）を渡す
     await append(
       {
         role: 'assistant',
@@ -69,8 +63,11 @@ export default function Home() {
       {
         body: {
           topic,
-          side: 'con', // 反対派
-          proContent,  // 上で取得した賛成派の主張全文をAPIに渡す
+          side: 'con',
+          proContent: tempProContent,
+        },
+        onFinish: (message) => {
+          setConContent(message.content);
         },
       }
     );
@@ -95,13 +92,9 @@ export default function Home() {
             <CardTitle>賛成派</CardTitle>
           </CardHeader>
           <CardContent>
-            {messages
-              .filter((m) => m.data?.side === 'pro')
-              .map((m, i) => (
-                <div key={i} className="p-2 bg-secondary rounded mb-2">
-                  {m.content}
-                </div>
-              ))}
+            <div className="p-2 bg-secondary text-secondary-foreground rounded mb-2 whitespace-pre-wrap">
+              {proContent}
+            </div>
           </CardContent>
         </Card>
 
@@ -111,13 +104,9 @@ export default function Home() {
             <CardTitle>反対派</CardTitle>
           </CardHeader>
           <CardContent>
-            {messages
-              .filter((m) => m.data?.side === 'con')
-              .map((m, i) => (
-                <div key={i} className="p-2 bg-secondary rounded mb-2">
-                  {m.content}
-                </div>
-              ))}
+            <div className="p-2 bg-secondary text-secondary-foreground rounded mb-2 whitespace-pre-wrap">
+              {conContent}
+            </div>
           </CardContent>
         </Card>
       </div>
