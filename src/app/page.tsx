@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -16,53 +17,63 @@ interface Message extends AIMessage {
 export default function Home() {
   const [topic, setTopic] = useState('');
 
+  // 「賛成派の最終主張」を別途保存するための状態
+  const [proArgument, setProArgument] = useState('');
+
   // ★ ジェネリクスで Message 型を指定
   const { messages, append } = useChat<Message>({
     api: '/api/debate',
-    // 今回は最初に送る body があるなら、ここに書いてもOK
-    // ただし pro/con を使い分けるなら append のオプションで渡す方が柔軟
   });
 
   // 討論開始
   const startDebate = async () => {
     if (!topic.trim()) return;
 
-    // ユーザーのメッセージ（topic）を送信
+    // ユーザーのメッセージ（topic）を送信（表示用）
     await append({
       role: 'user',
       content: topic,
       data: { side: 'user' },
     });
 
-    // 賛成派＆反対派を並列で呼び出す
-    await Promise.all([
-      append(
-        {
-          role: 'assistant',
-          content: '',
-          data: { side: 'pro' },
+    // ===== 賛成派の呼び出し =====
+    let proContent = '';
+    await append(
+      {
+        role: 'assistant',
+        content: '',
+        data: { side: 'pro' },
+      },
+      {
+        body: {
+          topic,
+          side: 'pro', // 賛成派
         },
-        {
-          body: {
-            topic,
-            side: 'pro',
-          },
+        // 賛成派呼び出しが完了したときに「完成した文章」を記録
+        onFinish: (message) => {
+          // message.content が最終的な賛成派のテキスト
+          proContent = message.content;
+          setProArgument(message.content); // 状態としても保存しておく
         },
-      ),
-      append(
-        {
-          role: 'assistant',
-          content: '',
-          data: { side: 'con' },
+      }
+    );
+
+    // ===== 反対派の呼び出し =====
+    // 賛成派の最終的な文章（proContent）を渡す
+    await append(
+      {
+        role: 'assistant',
+        content: '',
+        data: { side: 'con' },
+      },
+      {
+        body: {
+          topic,
+          side: 'con', // 反対派
+          proContent,  // 上で取得した賛成派の主張全文をAPIに渡す
         },
-        {
-          body: {
-            topic,
-            side: 'con',
-          },
-        },
-      ),
-    ]);
+      }
+    );
   };
 
   return (
