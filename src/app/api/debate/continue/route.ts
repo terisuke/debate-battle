@@ -1,7 +1,18 @@
 // src/app/api/debate/continue/route.ts
-import { supabase } from '@/lib/supabase'
-import OpenAI from 'openai'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import OpenAI from 'openai'
+
+// サーバーサイドでの環境変数の読み込み
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+// Supabaseクライアントの初期化
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -71,8 +82,8 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'text/event-stream' },
     })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    console.error('Error:', err)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
 
