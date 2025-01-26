@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Message as AIMessage } from 'ai';
 import { useChat } from 'ai/react';
 import { useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 interface Message extends AIMessage {
   data?: {
@@ -19,6 +21,9 @@ export default function Home() {
   const [proContent, setProContent] = useState('');
   const [conContent, setConContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [debateId, setDebateId] = useState('');
+  const [side, setSide] = useState<'pro' | 'con'>('pro');
+  const [streamingText, setStreamingText] = useState('');
 
   const { messages, append } = useChat({
     api: '/api/debate',
@@ -83,6 +88,46 @@ export default function Home() {
     }
   };
 
+  const handleContinue = async () => {
+    if (isStreaming) return;
+    setIsStreaming(true);
+    setStreamingText('');
+
+    try {
+      const res = await fetch('/api/debate/continue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ debateId, side }),
+      });
+
+      if (!res.ok) {
+        alert('継続リクエストが失敗しました');
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        let accumulated = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value);
+          setStreamingText(accumulated);
+          if (side === 'pro') {
+            setProContent(accumulated);
+          } else {
+            setConContent(accumulated);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
   return (
     <main className="container mx-auto p-4">
       <div className="mb-8">
@@ -98,6 +143,35 @@ export default function Home() {
           disabled={isStreaming}
         >
           {isStreaming ? '討論中...' : '討論開始'}
+        </Button>
+      </div>
+
+      <div className="mb-8 flex gap-4 items-end">
+        <Input
+          value={debateId}
+          onChange={(e) => setDebateId(e.target.value)}
+          placeholder="討論ID"
+          disabled={isStreaming}
+          className="max-w-xs"
+        />
+        <Select
+          value={side}
+          onValueChange={(value: 'pro' | 'con') => setSide(value)}
+          disabled={isStreaming}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="立場を選択" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pro">賛成派 (女子高生風)</SelectItem>
+            <SelectItem value="con">反対派 (子供風)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={handleContinue}
+          disabled={isStreaming || !debateId}
+        >
+          {isStreaming ? '継続中...' : '討論を継続'}
         </Button>
       </div>
 
