@@ -1,11 +1,17 @@
 'use client';
 
-import { useChat, Message } from 'ai/react';
+import { Message, useChat } from 'ai/react';
 import { useState } from 'react';
+
+interface AIAssistantMessage extends Message {
+  data?: {
+    side: 'pro' | 'con';
+  };
+}
 
 export default function Home() {
   const [topic, setTopic] = useState('');
-  const { messages, append } = useChat();
+  const { messages, append } = useChat<AIAssistantMessage>();
 
   const startDebate = async () => {
     await append({ role: 'user', content: topic });
