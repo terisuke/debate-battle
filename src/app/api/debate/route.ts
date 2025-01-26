@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
   // GPT-4 または GPT-3.5-turbo など、正しいモデルを指定する
   const response = await openai.chat.completions.create({
-    model: 'gpt-4', // ← 'gpt-3.5-turbo' 等に変更可。'gpt-4o' は存在しない
+    model: 'gpt-4o-mini', // ← 'gpt-3.5-turbo' 等に変更可。'gpt-4o' は存在しない
     stream: true,
     temperature: 0.9,
     messages: [
@@ -46,11 +46,10 @@ export async function POST(req: Request) {
 
   console.log('OpenAI APIからレスポンスを受信しました');
 
-  // ストリーミングレスポンスを ReadableStream に変換
+  // OpenAIからのストリーミングレスポンスを ReadableStream に変換
   const stream = new ReadableStream({
     async start(controller) {
       for await (const chunk of response) {
-        // ここで都度 chunk.choices[0]?.delta?.content があれば取り出す
         const text = chunk.choices[0]?.delta?.content || '';
         controller.enqueue(new TextEncoder().encode(text));
       }
@@ -61,6 +60,7 @@ export async function POST(req: Request) {
 
   console.log('レスポンスストリームを作成しました');
 
+  // text/event-stream 形式でレスポンスを返す
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',

@@ -18,61 +18,69 @@ export default function Home() {
   const [topic, setTopic] = useState('');
   const [proContent, setProContent] = useState('');
   const [conContent, setConContent] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
 
-  const { messages, append } = useChat<Message>({
+  const { messages, append } = useChat({
     api: '/api/debate',
   });
 
   const startDebate = async () => {
-    if (!topic.trim()) return;
+    if (!topic.trim() || isStreaming) return;
+    setIsStreaming(true);
 
-    // まずユーザー入力を "user" ロールで表示用に追加
-    await append({
-      role: 'user',
-      content: topic,
-      data: { side: 'user' },
-    });
+    try {
+      // 賛成派の応答を取得
+      const proResponse = await fetch('/api/debate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, side: 'pro' }),
+      });
 
-    // ===== 賛成派の呼び出し =====
-    let tempProContent = '';
-    await append(
-      {
-        role: 'assistant',
-        content: '',
-        data: { side: 'pro' },
-      },
-      {
-        body: {
-          topic,
-          side: 'pro', // 賛成派
-        },
-        onFinish: (message) => {
-          console.log('Pro side final output:', message.content); // デバッグ出力
-          tempProContent = message.content;
-          setProContent(message.content);
-        },
+      if (!proResponse.ok) throw new Error('Pro response failed');
+      
+      // ストリーミングデータを読み込む
+      const proReader = proResponse.body?.getReader();
+      let proText = '';
+      
+      while (proReader) {
+        const { done, value } = await proReader.read();
+        if (done) break;
+        
+        const chunk = new TextDecoder().decode(value);
+        proText += chunk;
+        setProContent(proText); // リアルタイムに更新
       }
-    );
 
-    // ===== 反対派の呼び出し =====
-    await append(
-      {
-        role: 'assistant',
-        content: '',
-        data: { side: 'con' },
-      },
-      {
-        body: {
-          topic,
+      // 反対派の応答を取得（賛成派の内容を含めて）
+      const conResponse = await fetch('/api/debate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          topic, 
           side: 'con',
-          proContent: tempProContent,
-        },
-        onFinish: (message) => {
-          console.log('Con side final output:', message.content); // デバッグ出力
-          setConContent(message.content);
-        },
+          proContent: proText 
+        }),
+      });
+
+      if (!conResponse.ok) throw new Error('Con response failed');
+      
+      const conReader = conResponse.body?.getReader();
+      let conText = '';
+      
+      while (conReader) {
+        const { done, value } = await conReader.read();
+        if (done) break;
+        
+        const chunk = new TextDecoder().decode(value);
+        conText += chunk;
+        setConContent(conText); // リアルタイムに更新
       }
-    );
+
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsStreaming(false);
+    }
   };
 
   return (
@@ -83,32 +91,35 @@ export default function Home() {
           onChange={(e) => setTopic(e.target.value)}
           className="mb-4"
           placeholder="討論テーマを入力"
+          disabled={isStreaming}
         />
-        <Button onClick={startDebate}>討論開始</Button>
+        <Button 
+          onClick={startDebate} 
+          disabled={isStreaming}
+        >
+          {isStreaming ? '討論中...' : '討論開始'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* 賛成派 */}
         <Card>
           <CardHeader>
             <CardTitle>賛成派</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* ここで賛成派のテキストを直に表示 → 見やすいようにスレート色で */}
             <div className="p-2 bg-gray-100 text-black rounded mb-2 whitespace-pre-wrap">
-              {proContent}
+              {proContent || '待機中...'}
             </div>
           </CardContent>
         </Card>
 
-        {/* 反対派 */}
         <Card>
           <CardHeader>
             <CardTitle>反対派</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="p-2 bg-gray-100 text-black rounded mb-2 whitespace-pre-wrap">
-              {conContent}
+              {conContent || '待機中...'}
             </div>
           </CardContent>
         </Card>
