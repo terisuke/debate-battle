@@ -1,4 +1,5 @@
-import OpenAI from 'openai';
+// app/api/debate/route.ts
+import { OpenAI } from '@ai-sdk/openai';
 import { StreamingTextResponse } from 'ai';
 
 const openai = new OpenAI({
